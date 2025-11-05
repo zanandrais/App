@@ -24,16 +24,3 @@ services:
         value: "6"
       - key: SHEET_VALUE_SUM_COLUMNS
         value: "ALL"
-  - type: web
-    name: dpc-java-service
-    env: docker
-    plan: free
-    autoDeploy: true
-    dockerfilePath: java-dpc/Dockerfile
-    envVars:
-      - key: PORT
-        value: "8080"
-      - key: SHEET_CSV_URL
-        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8RwHxsJQMWe8WTORuX0xAVltgeHFj-4rmLqrV4xCa5pFwimVrdUNdBS8zfUHT7qVp7WNLxcerqMB7/pub?gid=274513247&single=true&output=csv"
-      - key: SHEET_HEADER_ROW
-        value: "6"
