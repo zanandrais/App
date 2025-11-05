@@ -4,6 +4,6 @@ services:
     env: node
     plan: free
     autoDeploy: true
+    healthCheckPath: /healthz
     buildCommand: npm install
     startCommand: npm start
-
