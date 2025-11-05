@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: app-java
-    env: java
+    name: flex-table-chart-service
+    env: node
     plan: free
-    buildCommand: "mvn -DskipTests package"
-    startCommand: "java -jar target/tableapp-0.0.1-SNAPSHOT.jar"
-    branch: main
-    region: oregon
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+

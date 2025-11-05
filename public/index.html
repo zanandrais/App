@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tabela e Gráfico</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Visualização: Tabela e Gráfico</h1>
+    </header>
+    <main class="container">
+      <section class="panel" id="table-panel">
+        <h2>Tabela</h2>
+        <div class="table-wrapper">
+          <table id="data-table">
+            <thead>
+              <tr>
+                <th>Categoria</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel" id="chart-panel">
+        <h2>Gráfico</h2>
+        <canvas id="chart" width="400" height="300" role="img" aria-label="Gráfico de barras dos valores por categoria"></canvas>
+      </section>
+    </main>
+    <footer>
+      <p>Dados fornecidos por <code>/api/data</code></p>
+    </footer>
+  </body>
+  </html>
+
