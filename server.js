@@ -178,10 +178,59 @@ async function fetchSheetData() {
   }
 }
 
+// Busca o CSV bruto (sem alterar linhas) para acesso por coordenadas (ex.: B6)
+async function fetchCsvTextRaw() {
+  if (!SHEET_CSV_URL) return '';
+  const res = await fetch(SHEET_CSV_URL, { headers: { 'cache-control': 'no-cache' } });
+  if (!res.ok) throw new Error(`Falha ao buscar CSV: ${res.status}`);
+  return res.text();
+}
+
+function a1ToIndexes(a1) {
+  // Converte A1 para índices 0‑based: A1 -> [0,0]; B6 -> [5,1]
+  const m = String(a1).trim().match(/^([A-Za-z]+)(\d+)$/);
+  if (!m) return null;
+  const colStr = m[1].toUpperCase();
+  let col = 0;
+  for (let i = 0; i < colStr.length; i++) {
+    col = col * 26 + (colStr.charCodeAt(i) - 64);
+  }
+  const row = Number(m[2]);
+  return [row - 1, col - 1];
+}
+
+// Retorna o valor de células específicas a partir do CSV bruto
+async function getCells(values) {
+  const csv = await fetchCsvTextRaw();
+  // Não pular linhas vazias para preservar posições
+  const rows = parseCsv(csv, { columns: false, relax_column_count: true, skip_empty_lines: false });
+  const out = {};
+  for (const ref of values) {
+    const idx = a1ToIndexes(ref);
+    if (!idx) { out[ref] = null; continue; }
+    const [r, c] = idx;
+    out[ref] = rows[r] && rows[r][c] !== undefined ? String(rows[r][c]) : '';
+  }
+  return out;
+}
+
 // API que expõe os dados para a UI
 app.get('/api/data', async (req, res) => {
   const data = await fetchSheetData();
   res.json({ data });
+});
+
+// API para retornar células específicas da planilha publicada
+// Ex.: GET /api/sheet-cells?cells=B6,B7
+app.get('/api/sheet-cells', async (req, res) => {
+  try {
+    const cellsParam = String(req.query.cells || 'B6,B7');
+    const list = cellsParam.split(',').map((s) => s.trim()).filter(Boolean);
+    const cells = await getCells(list);
+    res.json({ cells });
+  } catch (e) {
+    res.status(500).json({ error: 'Falha ao obter células', details: String(e.message || e) });
+  }
 });
 
 // Healthcheck simples

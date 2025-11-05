@@ -56,3 +56,5 @@ tbody tr:hover { background: #f1f5f9; }
 
 footer { font-size: .9rem; }
 
+.cells { margin-top: 1rem; font-size: 0.95rem; }
+.cells h3 { margin: 0 0 .5rem 0; font-size: 1rem; }

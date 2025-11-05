@@ -47,6 +47,19 @@ async function init() {
     const data = await fetchData();
     populateTable(data);
     renderChart(data);
+
+    // Busca B6 e B7 da aba publicada como CSV
+    try {
+      const res = await fetch('/api/sheet-cells?cells=B6,B7');
+      if (res.ok) {
+        const json = await res.json();
+        const cells = json.cells || {};
+        const b6 = document.getElementById('cell-b6');
+        const b7 = document.getElementById('cell-b7');
+        if (b6) b6.textContent = cells.B6 ?? '';
+        if (b7) b7.textContent = cells.B7 ?? '';
+      }
+    } catch {}
   } catch (err) {
     console.error(err);
     const container = document.querySelector('.container');
@@ -55,4 +68,3 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
