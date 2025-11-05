@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tabela — TableApp</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>TableApp</h1>
+    <span class="badge">Render.com</span>
+  </header>
+  <main class="wrap">
+    <section class="card">
+      <div class="card-header">
+        <h2>Alunos e Notas</h2>
+        <button id="reload" class="btn">Recarregar</button>
+      </div>
+      <div class="table-wrap">
+        <table id="grid" class="table">
+          <thead>
+          <tr><th>ID</th><th>Nome</th><th>Turma</th><th>Nota</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="status" class="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <footer class="footer">Feito com HTML + CSS + Spring Boot</footer>
+  <script>
+    const tbody = document.querySelector('#grid tbody');
+    const statusBox = document.getElementById('status');
+    const btn = document.getElementById('reload');
+    async function load() {
+      statusBox.textContent = 'Carregando...';
+      tbody.innerHTML = '';
+      try {
+        const res = await fetch('/api/data');
+        const rows = await res.json();
+        tbody.innerHTML = rows.map(r => 
+          `<tr><td>${r.id}</td><td>${r.nome}</td><td>${r.turma}</td><td>${r.nota}</td></tr>`
+        ).join('');
+        statusBox.textContent = `Carregado: ${rows.length} registro(s).`;
+      } catch {
+        statusBox.textContent = 'Erro ao carregar dados.';
+      }
+    }
+    btn.addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

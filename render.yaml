@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: tableapp
+    env: java
+    plan: free
+    buildCommand: mvn -DskipTests package
+    startCommand: java -jar target/tableapp-0.0.1-SNAPSHOT.jar
+    autoDeploy: true
+    healthCheckPath: /
