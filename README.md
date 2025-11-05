@@ -48,7 +48,27 @@ Opção 2: Criar manualmente
 
 ## Personalizar dados
 
-No arquivo `server.js`, altere o array `data` conforme necessário (buscar de banco, arquivo, etc.). A UI se atualiza automaticamente a partir da API.
+### Usando Google Sheets como fonte
+
+Você pode apontar a API para uma planilha do Google (CSV) sem autenticação, desde que esteja pública ou "Publicada na Web".
+
+Opção A — URL CSV direto
+- No Google Sheets: Arquivo → Compartilhar → Publicar na Web → selecione a aba desejada e formato CSV.
+- Copie a URL gerada e defina como `SHEET_CSV_URL`.
+
+Opção B — Via ID e GID
+- Obtenha o `SHEET_ID` da URL do Google Sheets (`/spreadsheets/d/{SHEET_ID}/edit`).
+- Obtenha o `gid` da aba (aparece como `gid=123456789` na URL).
+- Defina `SHEET_ID` e `SHEET_GID` que o app monta a URL `export?format=csv` automaticamente.
+
+Cache
+- `CACHE_TTL_SECONDS` controla o cache em memória (padrão 60s).
+
+Formatação esperada
+- A API tenta mapear colunas por nomes comuns: `Categoria`/`Categoria` ou `Category` para a categoria, e `Valor`/`Value` para o valor. Caso diferente, usa as duas primeiras colunas.
+
+Sem Google Sheets
+- Se nenhuma variável for definida, a API usa um conjunto de dados de exemplo embutido.
 
 ## Licença
 

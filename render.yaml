@@ -7,3 +7,12 @@ services:
     healthCheckPath: /healthz
     buildCommand: npm install
     startCommand: npm start
+    envVars:
+      - key: SHEET_ID
+        sync: false
+      - key: SHEET_GID
+        sync: false
+      - key: SHEET_CSV_URL
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        value: "60"
