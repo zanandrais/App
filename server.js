@@ -24,6 +24,8 @@ const SHEET_CSV_URL = process.env.SHEET_CSV_URL || (
 );
 const SHEET_CATEGORY_COLUMN = process.env.SHEET_CATEGORY_COLUMN || null; // nome do cabeçalho ou índice (1-based)
 const SHEET_VALUE_COLUMN = process.env.SHEET_VALUE_COLUMN || null; // nome do cabeçalho ou índice (1-based)
+const SHEET_HEADER_ROW = process.env.SHEET_HEADER_ROW || null; // índice 1-based da linha de cabeçalho (opcional)
+const SHEET_VALUE_SUM_COLUMNS = process.env.SHEET_VALUE_SUM_COLUMNS || null; // lista separada por vírgulas ou 'ALL'
 
 // Cache simples em memória para reduzir chamadas
 const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS || 60);
@@ -55,11 +57,17 @@ async function fetchSheetData() {
     const res = await fetch(SHEET_CSV_URL, { headers: { 'cache-control': 'no-cache' } });
     if (!res.ok) throw new Error(`Falha ao buscar CSV: ${res.status}`);
     const csvText = await res.text();
-    const records = parseCsv(csvText, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    });
+    // Se informado, forçamos a linha de cabeçalho (1-based)
+    let textToParse = csvText;
+    if (SHEET_HEADER_ROW) {
+      const idx = Math.max(1, Number(SHEET_HEADER_ROW)) - 1;
+      const lines = csvText.split(/\r?\n/);
+      const header = lines[idx] || '';
+      const body = lines.slice(idx + 1).join('\n');
+      textToParse = `${header}\n${body}`;
+    }
+
+    const records = parseCsv(textToParse, { columns: true, skip_empty_lines: true, trim: true });
 
     const headers = records.length ? Object.keys(records[0]) : [];
 
@@ -83,6 +91,31 @@ async function fetchSheetData() {
       const n = Number(cleaned);
       return Number.isFinite(n) ? n : NaN;
     };
+
+    // 0) Se indicado para somar colunas (contagem de células não vazias por coluna)
+    if (SHEET_VALUE_SUM_COLUMNS) {
+      const headers = records.length ? Object.keys(records[0]) : [];
+      let cols = SHEET_VALUE_SUM_COLUMNS.trim();
+      let targetCols;
+      if (/^all$/i.test(cols)) {
+        targetCols = headers.slice(1); // ignora a primeira (ex.: Horário)
+      } else {
+        const wanted = cols.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+        targetCols = headers.filter((h) => wanted.includes(h.toLowerCase()));
+      }
+
+      const counts = new Map(targetCols.map((c) => [c, 0]));
+      for (const r of records) {
+        for (const c of targetCols) {
+          const v = r[c];
+          if (v !== undefined && String(v).trim() !== '') counts.set(c, (counts.get(c) || 0) + 1);
+        }
+      }
+
+      const output = Array.from(counts.entries()).map(([k, v]) => ({ category: String(k), value: v }));
+      cache = { data: output, at: now };
+      return output;
+    }
 
     // 1) Overrides por env
     let catKey = getColumnKey(SHEET_CATEGORY_COLUMN);

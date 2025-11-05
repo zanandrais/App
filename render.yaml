@@ -20,3 +20,7 @@ services:
         sync: false
       - key: SHEET_VALUE_COLUMN
         sync: false
+      - key: SHEET_HEADER_ROW
+        sync: false
+      - key: SHEET_VALUE_SUM_COLUMNS
+        sync: false
