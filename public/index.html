@@ -3,42 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tabela e Gráfico</title>
+    <title>DPC – C7:D11</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
     <header>
-      <h1>Visualização: Tabela e Gráfico</h1>
+      <h1>DPC: C7:D11</h1>
     </header>
     <main class="container">
-      <section class="panel" id="table-panel">
-        <h2>Tabela</h2>
+      <section class="panel" id="range-panel">
+        <h2>Aba DPC — C7:D11</h2>
         <div class="table-wrapper">
-          <table id="data-table">
+          <table id="range-table" aria-label="Conteúdo das células C7 a D11 da aba DPC">
             <thead>
-              <tr>
-                <th>Categoria</th>
-                <th>Valor</th>
-              </tr>
+              <tr id="range-head"></tr>
             </thead>
-            <tbody></tbody>
+            <tbody id="range-body"></tbody>
           </table>
         </div>
-        <div class="cells">
-          <h3>Semana — Células específicas</h3>
-          <p><code>B6</code>: <span id="cell-b6">...</span></p>
-          <p><code>B7</code>: <span id="cell-b7">...</span></p>
-        </div>
-      </section>
-      <section class="panel" id="chart-panel">
-        <h2>Gráfico</h2>
-        <canvas id="chart" width="400" height="300" role="img" aria-label="Gráfico de barras dos valores por categoria"></canvas>
       </section>
     </main>
     <footer>
-      <p>Dados fornecidos por <code>/api/data</code></p>
+      <p>Dados de <code>/api/sheet-range?start=C7&end=D11</code></p>
     </footer>
   </body>
   </html>

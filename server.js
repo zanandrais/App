@@ -233,6 +233,53 @@ app.get('/api/sheet-cells', async (req, res) => {
   }
 });
 
+// API para retornar um intervalo retangular (ex.: C7:D11) como uma tabela simples
+// GET /api/sheet-range?start=C7&end=D11
+app.get('/api/sheet-range', async (req, res) => {
+  try {
+    const start = String(req.query.start || 'C7');
+    const end = String(req.query.end || 'D11');
+    const csv = await fetchCsvTextRaw();
+    const rows = parseCsv(csv, { columns: false, relax_column_count: true, skip_empty_lines: false });
+    const s = a1ToIndexes(start);
+    const e = a1ToIndexes(end);
+    if (!s || !e) return res.status(400).json({ error: 'Parâmetros start/end inválidos' });
+    const [sr, sc] = s; const [er, ec] = e;
+    const r0 = Math.min(sr, er); const r1 = Math.max(sr, er);
+    const c0 = Math.min(sc, ec); const c1 = Math.max(sc, ec);
+
+    const headers = [];
+    for (let c = c0; c <= c1; c++) {
+      // tenta usar a linha de cabeçalho configurada, senão usa letras A,B,C..
+      const headerRowIdx = (process.env.SHEET_HEADER_ROW ? Number(process.env.SHEET_HEADER_ROW) - 1 : null);
+      let label = null;
+      if (headerRowIdx != null && rows[headerRowIdx]) {
+        label = rows[headerRowIdx][c];
+      }
+      if (!label) {
+        // A, B, C...
+        let n = c + 1; let s = '';
+        while (n > 0) { const rem = (n - 1) % 26; s = String.fromCharCode(65 + rem) + s; n = Math.floor((n - 1) / 26); }
+        label = s;
+      }
+      headers.push(String(label ?? ''));
+    }
+
+    const dataRows = [];
+    for (let r = r0; r <= r1; r++) {
+      const row = [];
+      for (let c = c0; c <= c1; c++) {
+        row.push(rows[r] && rows[r][c] !== undefined ? String(rows[r][c]) : '');
+      }
+      dataRows.push(row);
+    }
+
+    res.json({ headers, rows: dataRows });
+  } catch (e) {
+    res.status(500).json({ error: 'Falha ao obter intervalo', details: String(e.message || e) });
+  }
+});
+
 // Healthcheck simples
 app.get('/healthz', (req, res) => res.send('ok'));
 
