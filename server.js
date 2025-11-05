@@ -22,6 +22,8 @@ const SHEET_CSV_URL = process.env.SHEET_CSV_URL || (
     ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&id=${SHEET_ID}&gid=${SHEET_GID}`
     : null
 );
+const SHEET_CATEGORY_COLUMN = process.env.SHEET_CATEGORY_COLUMN || null; // nome do cabeçalho ou índice (1-based)
+const SHEET_VALUE_COLUMN = process.env.SHEET_VALUE_COLUMN || null; // nome do cabeçalho ou índice (1-based)
 
 // Cache simples em memória para reduzir chamadas
 const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS || 60);
@@ -59,20 +61,82 @@ async function fetchSheetData() {
       trim: true,
     });
 
-    // Tenta mapear colunas por nomes comuns (categoria/valor ou category/value)
-    const normalized = records.map((row) => {
-      const keys = Object.keys(row).reduce((acc, k) => {
-        acc[k.toLowerCase()] = k;
-        return acc;
-      }, {});
-      const catKey = keys['categoria'] || keys['category'] || keys['nome'] || Object.keys(row)[0];
-      const valKey = keys['valor'] || keys['value'] || keys['quantidade'] || Object.keys(row)[1];
-      const valueNum = Number(String(row[valKey]).replace(',', '.'));
-      return { category: String(row[catKey]), value: Number.isFinite(valueNum) ? valueNum : 0 };
-    });
+    const headers = records.length ? Object.keys(records[0]) : [];
 
-    cache = { data: normalized, at: now };
-    return normalized;
+    // Utilitário para pegar coluna por nome (case-insensitive) ou índice 1-based
+    const getColumnKey = (hint) => {
+      if (!hint) return null;
+      const idx = Number(hint);
+      if (Number.isInteger(idx) && idx >= 1 && idx <= headers.length) return headers[idx - 1];
+      const lower = String(hint).toLowerCase();
+      return headers.find((h) => h.toLowerCase() === lower) || null;
+    };
+
+    // Parse numérico robusto, ignorando datas/horas
+    const isTime = (s) => /^(\d{1,2}:\d{2})(:\d{2})?$/.test(s);
+    const isDateLike = (s) => /\d\/\d|\d-\d/.test(s);
+    const toNumber = (s) => {
+      if (s == null) return NaN;
+      const str = String(s).trim();
+      if (!str || isTime(str) || isDateLike(str)) return NaN;
+      const cleaned = str.replace(/\s/g, '').replace(/%/g, '').replace(/\./g, '').replace(',', '.');
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    // 1) Overrides por env
+    let catKey = getColumnKey(SHEET_CATEGORY_COLUMN);
+    let valKey = getColumnKey(SHEET_VALUE_COLUMN);
+
+    // 2) Heurística se não houver override
+    if (!catKey || (!valKey && headers.length > 1)) {
+      // Avalia colunas por predominância numérica
+      const stats = headers.map((h) => {
+        let numeric = 0; let total = 0;
+        for (const r of records) {
+          if (r[h] !== undefined && String(r[h]).trim() !== '') {
+            total++;
+            if (Number.isFinite(toNumber(r[h]))) numeric++;
+          }
+        }
+        return { header: h, numeric, total };
+      });
+
+      // Categoria: primeira coluna majoritariamente não numérica
+      if (!catKey) {
+        const nonNumericFirst = stats.find((s) => s.total > 0 && s.numeric / Math.max(1, s.total) < 0.5);
+        catKey = nonNumericFirst ? nonNumericFirst.header : headers[0];
+      }
+
+      // Valor: coluna mais numérica
+      if (!valKey && headers.length > 1) {
+        const numericBest = stats
+          .filter((s) => s.header !== catKey)
+          .sort((a, b) => b.numeric - a.numeric)[0];
+        if (numericBest && numericBest.numeric > 0) valKey = numericBest.header;
+      }
+    }
+
+    let output;
+    if (valKey) {
+      // Mapear categoria/valor diretamente
+      output = records.map((row) => ({
+        category: String(row[catKey]),
+        value: Number.isFinite(toNumber(row[valKey])) ? toNumber(row[valKey]) : 0,
+      }));
+    } else {
+      // Sem coluna numérica: agregamos contagem por categoria
+      const counts = new Map();
+      for (const r of records) {
+        const k = String(r[catKey] ?? '').trim();
+        if (!k) continue;
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
+      output = Array.from(counts.entries()).map(([k, v]) => ({ category: k, value: v }));
+    }
+
+    cache = { data: output, at: now };
+    return output;
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Erro buscando Google Sheets:', err.message);

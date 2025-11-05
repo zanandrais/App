@@ -52,7 +52,7 @@ Opção 2: Criar manualmente
 
 Você pode apontar a API para uma planilha do Google (CSV) sem autenticação, desde que esteja pública ou "Publicada na Web".
 
-Opção A — URL CSV direto
+Opção A — URL CSV direto (recomendado)
 - No Google Sheets: Arquivo → Compartilhar → Publicar na Web → selecione a aba desejada e formato CSV.
 - Copie a URL gerada e defina como `SHEET_CSV_URL`.
 
@@ -65,7 +65,12 @@ Cache
 - `CACHE_TTL_SECONDS` controla o cache em memória (padrão 60s).
 
 Formatação esperada
-- A API tenta mapear colunas por nomes comuns: `Categoria`/`Categoria` ou `Category` para a categoria, e `Valor`/`Value` para o valor. Caso diferente, usa as duas primeiras colunas.
+- Heurística automática:
+  - Categoria: primeira coluna majoritariamente não numérica.
+  - Valor: coluna com mais valores numéricos; se nenhuma for numérica, a API retorna contagem de linhas por categoria.
+- Overrides opcionais por env:
+  - `SHEET_CATEGORY_COLUMN`: nome exato do cabeçalho (case-insensitive) ou índice 1‑based (ex.: `1`).
+  - `SHEET_VALUE_COLUMN`: nome do cabeçalho ou índice 1‑based da coluna numérica desejada.
 
 Sem Google Sheets
 - Se nenhuma variável for definida, a API usa um conjunto de dados de exemplo embutido.

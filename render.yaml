@@ -16,3 +16,7 @@ services:
         value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8RwHxsJQMWe8WTORuX0xAVltgeHFj-4rmLqrV4xCa5pFwimVrdUNdBS8zfUHT7qVp7WNLxcerqMB7/pub?output=csv"
       - key: CACHE_TTL_SECONDS
         value: "60"
+      - key: SHEET_CATEGORY_COLUMN
+        sync: false
+      - key: SHEET_VALUE_COLUMN
+        sync: false
