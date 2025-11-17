@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DPC - Inventario</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="inventario.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Dashboard DPC</p>
+        <h1>Inventario</h1>
+        <p class="subhead">Intervalo D4:U30 da aba Inventario</p>
+      </div>
+      <a class="back-link" href="./" aria-label="Retornar ao painel principal">Voltar para o painel</a>
+    </header>
+    <main class="container">
+      <section class="panel" id="inventario-panel">
+        <div class="panel-head">
+          <div>
+            <p class="tag">Google Sheets</p>
+            <h2>Inventario (D4:U30)</h2>
+            <p class="text-muted">Dados carregados diretamente da planilha compartilhada no Google Sheets.</p>
+          </div>
+          <div class="panel-status">
+            <span id="status-pill" class="status-pill" data-state="loading">Sincronizando...</span>
+            <p class="meta">Ultima sincronizacao: <span id="last-sync">-</span></p>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table id="inventario-table" aria-describedby="inventario-caption">
+            <caption id="inventario-caption">Conteudo das celulas D4 a U30 da aba Inventario</caption>
+            <thead>
+              <tr id="inventario-head"></tr>
+            </thead>
+            <tbody id="inventario-body"></tbody>
+          </table>
+        </div>
+        <div id="empty-state" class="empty-state" hidden>
+          Dados nao encontrados no intervalo selecionado.
+        </div>
+      </section>
+    </main>
+    <footer>
+      <p>Inventario - intervalo D4:U30</p>
+    </footer>
+  </body>
+</html>

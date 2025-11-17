@@ -17,15 +17,17 @@ app.use(express.json());
 // Use SHEET_CSV_URL diretamente OU SHEET_ID + SHEET_GID para montar a URL.
 const SHEET_ID = process.env.SHEET_ID;
 const SHEET_GID = process.env.SHEET_GID;
-const SHEET_CSV_URL = process.env.SHEET_CSV_URL || (
-  SHEET_ID && SHEET_GID
-    ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&id=${SHEET_ID}&gid=${SHEET_GID}`
-    : null
-);
+const SHEET_CSV_URL = process.env.SHEET_CSV_URL || buildCsvUrl(SHEET_ID, SHEET_GID);
 const SHEET_CATEGORY_COLUMN = process.env.SHEET_CATEGORY_COLUMN || null; // nome do cabeçalho ou índice (1-based)
 const SHEET_VALUE_COLUMN = process.env.SHEET_VALUE_COLUMN || null; // nome do cabeçalho ou índice (1-based)
 const SHEET_HEADER_ROW = process.env.SHEET_HEADER_ROW || null; // índice 1-based da linha de cabeçalho (opcional)
 const SHEET_VALUE_SUM_COLUMNS = process.env.SHEET_VALUE_SUM_COLUMNS || null; // lista separada por vírgulas ou 'ALL'
+const INVENTORY_SHEET_ID = process.env.INVENTORY_SHEET_ID || '1K80WnIJAtTTQpbGKQF5QJk5FNfaAl5ks5nmCI7y9o2s';
+const INVENTORY_SHEET_GID = process.env.INVENTORY_SHEET_GID || '1183098319';
+const INVENTORY_SHEET_CSV_URL =
+  process.env.INVENTORY_SHEET_CSV_URL || buildCsvUrl(INVENTORY_SHEET_ID, INVENTORY_SHEET_GID);
+const INVENTORY_HEADER_ROW = normalizeHeaderRow(process.env.INVENTORY_HEADER_ROW) ?? 4;
+
 
 // Cache simples em memória para reduzir chamadas
 const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS || 60);
@@ -179,9 +181,9 @@ async function fetchSheetData() {
 }
 
 // Busca o CSV bruto (sem alterar linhas) para acesso por coordenadas (ex.: B6)
-async function fetchCsvTextRaw() {
-  if (!SHEET_CSV_URL) return '';
-  const res = await fetch(SHEET_CSV_URL, { headers: { 'cache-control': 'no-cache' } });
+async function fetchCsvTextRaw(csvUrl = SHEET_CSV_URL) {
+  if (!csvUrl) return '';
+  const res = await fetch(csvUrl, { headers: { 'cache-control': 'no-cache' } });
   if (!res.ok) throw new Error(`Falha ao buscar CSV: ${res.status}`);
   return res.text();
 }
@@ -239,44 +241,32 @@ app.get('/api/sheet-range', async (req, res) => {
   try {
     const start = String(req.query.start || 'C7');
     const end = String(req.query.end || 'D11');
-    const csv = await fetchCsvTextRaw();
-    const rows = parseCsv(csv, { columns: false, relax_column_count: true, skip_empty_lines: false });
-    const s = a1ToIndexes(start);
-    const e = a1ToIndexes(end);
-    if (!s || !e) return res.status(400).json({ error: 'Parâmetros start/end inválidos' });
-    const [sr, sc] = s; const [er, ec] = e;
-    const r0 = Math.min(sr, er); const r1 = Math.max(sr, er);
-    const c0 = Math.min(sc, ec); const c1 = Math.max(sc, ec);
-
-    const headers = [];
-    for (let c = c0; c <= c1; c++) {
-      // tenta usar a linha de cabeçalho configurada, senão usa letras A,B,C..
-      const headerRowIdx = (process.env.SHEET_HEADER_ROW ? Number(process.env.SHEET_HEADER_ROW) - 1 : null);
-      let label = null;
-      if (headerRowIdx != null && rows[headerRowIdx]) {
-        label = rows[headerRowIdx][c];
-      }
-      if (!label) {
-        // A, B, C...
-        let n = c + 1; let s = '';
-        while (n > 0) { const rem = (n - 1) % 26; s = String.fromCharCode(65 + rem) + s; n = Math.floor((n - 1) / 26); }
-        label = s;
-      }
-      headers.push(String(label ?? ''));
-    }
-
-    const dataRows = [];
-    for (let r = r0; r <= r1; r++) {
-      const row = [];
-      for (let c = c0; c <= c1; c++) {
-        row.push(rows[r] && rows[r][c] !== undefined ? String(rows[r][c]) : '');
-      }
-      dataRows.push(row);
-    }
-
-    res.json({ headers, rows: dataRows });
+    const csvOverride = req.query.csvUrl ? String(req.query.csvUrl) : null;
+    const sheetIdOverride = req.query.sheetId ? String(req.query.sheetId) : null;
+    const gidOverride = req.query.gid ? String(req.query.gid) : null;
+    const csvUrl = csvOverride || buildCsvUrl(sheetIdOverride, gidOverride) || SHEET_CSV_URL;
+    const headerRow = normalizeHeaderRow(req.query.headerRow) ?? normalizeHeaderRow(SHEET_HEADER_ROW);
+    const payload = await sliceSheetRange({ start, end, csvUrl, headerRow });
+    res.json(payload);
   } catch (e) {
     res.status(500).json({ error: 'Falha ao obter intervalo', details: String(e.message || e) });
+  }
+});
+
+app.get('/api/inventory-range', async (req, res) => {
+  try {
+    if (!INVENTORY_SHEET_CSV_URL) {
+      return res.status(500).json({ error: 'Planilha de Inventario nao configurada' });
+    }
+    const payload = await sliceSheetRange({
+      start: 'D4',
+      end: 'U30',
+      csvUrl: INVENTORY_SHEET_CSV_URL,
+      headerRow: INVENTORY_HEADER_ROW
+    });
+    res.json(payload);
+  } catch (e) {
+    res.status(500).json({ error: 'Falha ao obter inventario', details: String(e.message || e) });
   }
 });
 
@@ -290,3 +280,63 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Servidor iniciado em http://localhost:${PORT}`);
 });
+
+async function sliceSheetRange({ start, end, csvUrl, headerRow }) {
+  if (!start || !end) throw new Error('Parametros start/end invalidos');
+  if (!csvUrl) throw new Error('URL da planilha nao configurada');
+  const csv = await fetchCsvTextRaw(csvUrl);
+  const rows = parseCsv(csv, { columns: false, relax_column_count: true, skip_empty_lines: false });
+  const s = a1ToIndexes(start);
+  const e = a1ToIndexes(end);
+  if (!s || !e) throw new Error('Parametros start/end invalidos');
+  const [sr, sc] = s; const [er, ec] = e;
+  const r0 = Math.min(sr, er); const r1 = Math.max(sr, er);
+  const c0 = Math.min(sc, ec); const c1 = Math.max(sc, ec);
+  const headerRowIdx = headerRow != null ? Math.max(0, Number(headerRow) - 1) : null;
+
+  const headers = [];
+  for (let c = c0; c <= c1; c++) {
+    let label = null;
+    if (headerRowIdx != null && rows[headerRowIdx]) {
+      label = rows[headerRowIdx][c];
+    }
+    if (!label) {
+      label = columnIndexToLabel(c);
+    }
+    headers.push(String(label ?? ''));
+  }
+
+  const dataRows = [];
+  for (let r = r0; r <= r1; r++) {
+    const row = [];
+    for (let c = c0; c <= c1; c++) {
+      row.push(rows[r] && rows[r][c] !== undefined ? String(rows[r][c]) : '');
+    }
+    dataRows.push(row);
+  }
+
+  return { headers, rows: dataRows };
+}
+
+function columnIndexToLabel(columnIndex) {
+  let n = columnIndex + 1;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+function normalizeHeaderRow(value) {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.floor(n);
+}
+
+function buildCsvUrl(sheetId, gid) {
+  if (!sheetId || !gid) return null;
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}&gid=${gid}`;
+}
